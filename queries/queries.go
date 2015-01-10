@@ -64,7 +64,7 @@ func (s *sqlPouch) Find(i pouch.Findable) error {
 	return findEntity(s.db, i, "", nil)
 }
 
-func (s *sqlPouch) Create(i pouch.Insertable) error {
+func (s *sqlPouch) Create(i pouch.Createable) error {
 	return createEntity(s.db, i, "")
 }
 
@@ -72,13 +72,12 @@ func (s *sqlPouch) Update(u pouch.Updateable) error {
 	return updateEntity(s.db, u, "")
 }
 
-func (s *sqlPouch) Delete(i pouch.Identifiable) error {
+func (s *sqlPouch) Delete(i pouch.Deleteable) error {
 	return deleteEntity(s.db, i, "")
 }
 
 // TODO(ttacon): reuse these as we add other dialects
 func findEntity(db pouch.Executor, i pouch.Findable, rest string, ps []interface{}) error {
-	// TODO(ttacon): do it
 	cols, fields := i.GetAllFields()
 	if len(cols) == 0 || len(fields) == 0 {
 		return errors.New("must provide columns to select from")
@@ -116,13 +115,11 @@ func findEntity(db pouch.Executor, i pouch.Findable, rest string, ps []interface
 		query.WriteString(" AND " + rest)
 	}
 
-	fmt.Println("query: ", query.String())
-	fmt.Println("params: ", ps)
 	row := db.QueryRow(query.String(), ps...)
 	return row.Scan(fields...)
 }
 
-func createEntity(db pouch.Executor, i pouch.Insertable, rest string) error {
+func createEntity(db pouch.Executor, i pouch.Createable, rest string) error {
 	var cols, vals = i.InsertableFields()
 	if len(cols) == 0 || len(vals) == 0 {
 		return errors.New("cannot insert empty entity")
@@ -148,6 +145,7 @@ func createEntity(db pouch.Executor, i pouch.Insertable, rest string) error {
 	if err != nil {
 		return err
 	}
+
 	id, err := res.LastInsertId()
 	if err != nil {
 		return err
@@ -156,7 +154,7 @@ func createEntity(db pouch.Executor, i pouch.Insertable, rest string) error {
 }
 
 func updateEntity(db pouch.Executor, u pouch.Updateable, rest string) error {
-	var cols, vals = i.InsertableFields()
+	var cols, vals = u.InsertableFields()
 	if len(cols) == 0 || len(vals) == 0 {
 		return errors.New("cannot insert empty entity")
 	}
@@ -164,17 +162,17 @@ func updateEntity(db pouch.Executor, u pouch.Updateable, rest string) error {
 		return errors.New("[inserting], there cannot be more columns than values")
 	}
 
-	table := i.Table()
+	table := u.Table()
 	if len(table) == 0 {
 		return errors.New("this entity is not known to be associated with any table")
 	}
 
-	ids, idVals := i.IdentifiableFields()
+	ids, idVals := u.IdentifiableFields()
 	if len(ids) == 0 || len(idVals) == 0 {
 		return errors.New("no identifying information for entity")
 	}
 
-	var query = builder.NewBuilderString("update " + table + " set ")
+	var query = builder.NewBuilderString("update " + table + "\nset ")
 	for i, col := range cols {
 		if i > 0 && i < len(cols) {
 			query.WriteString(", ")
@@ -183,7 +181,7 @@ func updateEntity(db pouch.Executor, u pouch.Updateable, rest string) error {
 	}
 
 	vals = append(vals, idVals...)
-	query.WriteString("where ")
+	query.WriteString("\nwhere ")
 	for i, id := range ids {
 		if i > 0 && i < len(ids)-1 {
 			query.WriteString(" AND ")
@@ -191,14 +189,31 @@ func updateEntity(db pouch.Executor, u pouch.Updateable, rest string) error {
 		query.WriteString(id + " = ? ")
 	}
 
-	fmt.Sprintf(query.String())
-	_, err = db.Exec(query.String(), vals...)
+	_, err := db.Exec(query.String(), vals...)
 	return err
 }
 
-func deleteEntity(db pouch.Executor, i pouch.Identifiable, rest string) error {
-	// TODO(ttacon): do it
-	return nil
+func deleteEntity(db pouch.Executor, d pouch.Deleteable, rest string) error {
+	table := d.Table()
+	if len(table) == 0 {
+		return errors.New("this entity is not known to be associated with any table")
+	}
+
+	ids, idVals := d.IdentifiableFields()
+	if len(ids) == 0 || len(idVals) == 0 {
+		return errors.New("no identifying information for entity")
+	}
+
+	var query = builder.NewBuilderString("delete\nfrom " + table + "\nwhere ")
+	for i, id := range ids {
+		if i > 0 && i < len(ids) {
+			query.WriteString(", ")
+		}
+		query.WriteString(id + " = ?")
+	}
+
+	_, err := db.Exec(query.String(), idVals...)
+	return err
 }
 
 ////////// SQL pouch.Query implementation //////////
@@ -222,7 +237,7 @@ func (s *sqlQuery) Find(i pouch.Findable) error {
 	return findEntity(s.db, i, rest, vals)
 }
 
-func (s *sqlQuery) Create(i pouch.Insertable) error {
+func (s *sqlQuery) Create(i pouch.Createable) error {
 	rest, _ := buildConstraints(s)
 	return createEntity(s.db, i, rest)
 }
@@ -232,7 +247,7 @@ func (s *sqlQuery) Update(u pouch.Updateable) error {
 	return updateEntity(s.db, u, rest)
 }
 
-func (s *sqlQuery) Delete(i pouch.Identifiable) error {
+func (s *sqlQuery) Delete(i pouch.Deleteable) error {
 	rest, _ := buildConstraints(s)
 	return deleteEntity(s.db, i, rest)
 }

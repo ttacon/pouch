@@ -9,9 +9,9 @@ type Pouch interface {
 
 type Storage interface {
 	Find(Findable) error
-	Create(Insertable) error
+	Create(Createable) error
 	Update(Updateable) error
-	Delete(Identifiable) error
+	Delete(Deleteable) error
 }
 
 type Query interface {
@@ -19,9 +19,18 @@ type Query interface {
 	Storage
 }
 
+type Createable interface {
+	Insertable
+	Tableable
+}
+
 type Gettable interface {
 	GetFieldsFor([]string) []interface{}
 	GetAllFields() ([]string, []interface{})
+	Tableable
+}
+
+type Tableable interface {
 	Table() string
 }
 
@@ -33,7 +42,6 @@ type Findable interface {
 type Insertable interface {
 	InsertableFields() ([]string, []interface{})
 	SetIdentifier(interface{}) error
-	Table() string
 }
 
 type Identifiable interface {
@@ -43,6 +51,12 @@ type Identifiable interface {
 type Updateable interface {
 	Insertable
 	Identifiable
+	Tableable
+}
+
+type Deleteable interface {
+	Identifiable
+	Tableable
 }
 
 type Queryable interface {

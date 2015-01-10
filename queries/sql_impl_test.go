@@ -40,6 +40,10 @@ func Test_create(t *testing.T) {
 	pretty.Println(f)
 }
 
+func pString(s string) *string {
+	return &s
+}
+
 func Test_update(t *testing.T) {
 	dbConn, err := sql.Open("mysql", "trey:chips@/dbgen")
 	if err != nil {
@@ -49,9 +53,26 @@ func Test_update(t *testing.T) {
 
 	p := SQLPouch(dbConn)
 	var f = Food{
-		Nil: "YUMMY",
+		ID:  4,
+		Nil: pString("YUMMY"),
 	}
 	err = p.Update(&f)
+	fmt.Println("err: ", err)
+	pretty.Println(f)
+}
+
+func Test_delete(t *testing.T) {
+	dbConn, err := sql.Open("mysql", "trey:chips@/dbgen")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	p := SQLPouch(dbConn)
+	var f = Food{
+		ID: 5,
+	}
+	err = p.Delete(&f)
 	fmt.Println("err: ", err)
 	pretty.Println(f)
 }
@@ -89,10 +110,8 @@ func (f *Food) InsertableFields() ([]string, []interface{}) {
 	var cols []string
 	var vals []interface{}
 
-	if len(f.Name) > 0 {
-		cols = append(cols, "Name")
-		vals = append(vals, f.Name)
-	}
+	cols = append(cols, "Name")
+	vals = append(vals, f.Name)
 
 	if f.Nil != nil {
 		cols = append(cols, "NullableField")

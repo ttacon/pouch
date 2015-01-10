@@ -2,11 +2,9 @@ package queries
 
 import (
 	"database/sql"
-	"fmt"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/ttacon/pretty"
 )
 
 func Test_Pouch(t *testing.T) {
@@ -20,8 +18,18 @@ func Test_Pouch(t *testing.T) {
 	var f Food
 	f.ID = 1
 	err = p.Find(&f)
-	fmt.Println("err: ", err)
-	pretty.Println(f)
+
+	if err != nil {
+		t.Error("err should be nil, was: ", err)
+	}
+
+	if f.Name != "spinach" {
+		t.Error("name should have been 'spinach', was: ", f.Name)
+	}
+
+	if f.Nil != nil {
+		t.Error("Nil should have been nil, was: ", f.Nil)
+	}
 }
 
 func Test_create(t *testing.T) {
@@ -36,8 +44,14 @@ func Test_create(t *testing.T) {
 		Name: "spinach",
 	}
 	err = p.Create(&f)
-	fmt.Println("err: ", err)
-	pretty.Println(f)
+
+	if err != nil {
+		t.Error("err should have been nil, was: ", err)
+	}
+
+	if f.ID != 3 {
+		t.Error("ID should have been 3, was: ", f.ID)
+	}
 }
 
 func pString(s string) *string {
@@ -57,8 +71,14 @@ func Test_update(t *testing.T) {
 		Nil: pString("YUMMY"),
 	}
 	err = p.Update(&f)
-	fmt.Println("err: ", err)
-	pretty.Println(f)
+
+	if err != nil {
+		t.Error("err should have been nil, was: ", err)
+	}
+
+	if f.Name != "" {
+		t.Error("Name should have been empty/overridden, was: ", f.Name)
+	}
 }
 
 func Test_delete(t *testing.T) {
@@ -73,8 +93,10 @@ func Test_delete(t *testing.T) {
 		ID: 5,
 	}
 	err = p.Delete(&f)
-	fmt.Println("err: ", err)
-	pretty.Println(f)
+
+	if err != nil {
+		t.Error("err should have been nil, was: ", err)
+	}
 }
 
 type Food struct {

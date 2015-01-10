@@ -8,6 +8,8 @@ if [ $? -ne 0 ]; then
     echo "Database pouch already exists...";
 fi
 
+mysql -u $1 -p$2 -e "use pouch; drop table Food;";
+
 mysql -u $1 -p$2 -e "GRANT ALL ON pouch.* TO pouch@localhost IDENTIFIED BY 'pouch';";
-mysql -u $1 -p$2 -e "use pouch; CREATE TABLE Food (ID int primary key auto_increment not null, Name varchar(255) not null, NullableField varchar(32)) engine=InnoDB;";
+mysql -u $1 -p$2 -e "use pouch; CREATE TABLE Food (ID int primary key auto_increment not null, Name varchar(255) not null, NullableField varchar(32)) engine=InnoDB; insert into Food (Name) values ('spinach'), ('alfalfa hay');";
 

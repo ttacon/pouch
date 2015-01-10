@@ -10,7 +10,7 @@ import (
 )
 
 func Test_Pouch(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/dbgen")
+	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
 	if err != nil {
 		t.Error(err)
 		return
@@ -25,7 +25,7 @@ func Test_Pouch(t *testing.T) {
 }
 
 func Test_create(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/dbgen")
+	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
 	if err != nil {
 		t.Error(err)
 		return
@@ -45,7 +45,7 @@ func pString(s string) *string {
 }
 
 func Test_update(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/dbgen")
+	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
 	if err != nil {
 		t.Error(err)
 		return
@@ -53,7 +53,7 @@ func Test_update(t *testing.T) {
 
 	p := SQLPouch(dbConn)
 	var f = Food{
-		ID:  4,
+		ID:  2,
 		Nil: pString("YUMMY"),
 	}
 	err = p.Update(&f)
@@ -62,7 +62,7 @@ func Test_update(t *testing.T) {
 }
 
 func Test_delete(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/dbgen")
+	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
 	if err != nil {
 		t.Error(err)
 		return

@@ -19,5 +19,6 @@ before_script:
  - go get labix.org/v2/mgo
  - mysql -e "CREATE DATABASE pouch;"
  - mysql -u root -e "GRANT ALL ON pouch.* TO pouch@localhost IDENTIFIED BY 'pouch'"
+ - mysql -u root -e "use pouch; CREATE TABLE Food (ID int primary key auto_increment not null, Name varchar(255) not null, NullableField varchar(32)) engine=InnoDB; insert into Food (Name) values ('spinach'), ('alfalfa hay');";
  - psql -c "CREATE DATABASE pouch;" -U postgres
  - psql -c "CREATE USER "pouch" WITH SUPERUSER PASSWORD 'pouch';" -U postgres

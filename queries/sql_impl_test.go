@@ -40,6 +40,22 @@ func Test_create(t *testing.T) {
 	pretty.Println(f)
 }
 
+func Test_update(t *testing.T) {
+	dbConn, err := sql.Open("mysql", "trey:chips@/dbgen")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	p := SQLPouch(dbConn)
+	var f = Food{
+		Nil: "YUMMY",
+	}
+	err = p.Update(&f)
+	fmt.Println("err: ", err)
+	pretty.Println(f)
+}
+
 type Food struct {
 	ID   int
 	Name string
@@ -72,8 +88,11 @@ func (f *Food) SetIdentifier(i interface{}) error {
 func (f *Food) InsertableFields() ([]string, []interface{}) {
 	var cols []string
 	var vals []interface{}
-	cols = append(cols, "Name")
-	vals = append(vals, f.Name)
+
+	if len(f.Name) > 0 {
+		cols = append(cols, "Name")
+		vals = append(vals, f.Name)
+	}
 
 	if f.Nil != nil {
 		cols = append(cols, "NullableField")

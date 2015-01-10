@@ -156,8 +156,44 @@ func createEntity(db pouch.Executor, i pouch.Insertable, rest string) error {
 }
 
 func updateEntity(db pouch.Executor, u pouch.Updateable, rest string) error {
-	// TODO(ttacon): do it
-	return nil
+	var cols, vals = i.InsertableFields()
+	if len(cols) == 0 || len(vals) == 0 {
+		return errors.New("cannot insert empty entity")
+	}
+	if len(cols) != len(vals) {
+		return errors.New("[inserting], there cannot be more columns than values")
+	}
+
+	table := i.Table()
+	if len(table) == 0 {
+		return errors.New("this entity is not known to be associated with any table")
+	}
+
+	ids, idVals := i.IdentifiableFields()
+	if len(ids) == 0 || len(idVals) == 0 {
+		return errors.New("no identifying information for entity")
+	}
+
+	var query = builder.NewBuilderString("update " + table + " set ")
+	for i, col := range cols {
+		if i > 0 && i < len(cols) {
+			query.WriteString(", ")
+		}
+		query.WriteString(col + " = ?")
+	}
+
+	vals = append(vals, idVals...)
+	query.WriteString("where ")
+	for i, id := range ids {
+		if i > 0 && i < len(ids)-1 {
+			query.WriteString(" AND ")
+		}
+		query.WriteString(id + " = ? ")
+	}
+
+	fmt.Sprintf(query.String())
+	_, err = db.Exec(query.String(), vals...)
+	return err
 }
 
 func deleteEntity(db pouch.Executor, i pouch.Identifiable, rest string) error {

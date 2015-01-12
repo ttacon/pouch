@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/ttacon/pouch"
 )
 
 func Test_Pouch(t *testing.T) {
@@ -128,6 +129,25 @@ func (f *Food) SetIdentifier(i interface{}) error {
 	f.ID = int(id)
 	return nil
 }
+
+func (f *Food) FieldsFor(cols []string) []interface{} {
+	var vals = make([]interface{}, len(cols))
+	for i, col := range cols {
+		if col == "ID" {
+			vals[i] = f.ID
+		} else if col == "Name" {
+			vals[i] = f.Name
+		} else if col == "Nil" {
+			vals[i] = f.Nil
+		}
+	}
+	return vals
+}
+
+func (f *Food) FindableCopy() pouch.Findable {
+	return &Food{}
+}
+
 func (f *Food) InsertableFields() ([]string, []interface{}) {
 	var cols []string
 	var vals []interface{}

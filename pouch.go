@@ -13,10 +13,17 @@ type Pouch interface {
 // be interacted with to store or retrieve entities which
 // can be found, created, updated and deleted.
 type Storage interface {
+	FindAll([]Findable) error
 	Find(Findable) error
+
 	Create(Createable) error
+	CreateAll([]Createable) error
+
 	Update(Updateable) error
+	UpdateAll([]Updateable) error
+
 	Delete(Deleteable) error
+	DeleteAll([]Deleteable) error
 }
 
 // A Query is a direct gateway to interact with the storage and
@@ -27,6 +34,7 @@ type Storage interface {
 type Query interface {
 	Queryable
 	Storage
+	FindEntities(Findable, *[]Findable) error
 }
 
 // A Creatable entity is one that knows where it is meant to be
@@ -57,11 +65,13 @@ type Tableable interface {
 type Findable interface {
 	Identifiable
 	Gettable
+	FindableCopy() Findable
 }
 
 // An Insertable entity is one which knows what data from itself
 // needs to be stored in an underlying storage system.
 type Insertable interface {
+	FieldsFor([]string) []interface{}
 	InsertableFields() ([]string, []interface{})
 	SetIdentifier(interface{}) error
 }

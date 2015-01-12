@@ -64,16 +64,34 @@ func (s *sqlPouch) Find(i pouch.Findable) error {
 	return findEntity(s.db, i, "", nil)
 }
 
+func (s *sqlPouch) FindAll(fs []pouch.Findable) error {
+	// TODO(ttaco): do it
+	return nil
+}
+
 func (s *sqlPouch) Create(i pouch.Createable) error {
 	return createEntity(s.db, i, "")
+}
+
+func (s *sqlPouch) CreateAll(cs []pouch.Createable) error {
+	return createAll(s.db, cs)
 }
 
 func (s *sqlPouch) Update(u pouch.Updateable) error {
 	return updateEntity(s.db, u, "")
 }
 
+func (s *sqlPouch) UpdateAll(u []pouch.Updateable) error {
+	// TODO(ttaco): do it
+	return nil
+}
+
 func (s *sqlPouch) Delete(i pouch.Deleteable) error {
 	return deleteEntity(s.db, i, "")
+}
+
+func (s *sqlPouch) DeleteAll(ds []pouch.Deleteable) error {
+	return deleteAll(s.db, ds)
 }
 
 // TODO(ttacon): reuse these as we add other dialects
@@ -237,9 +255,18 @@ func (s *sqlQuery) Find(i pouch.Findable) error {
 	return findEntity(s.db, i, rest, vals)
 }
 
+func (s *sqlQuery) FindAll(fs []pouch.Findable) error {
+	rest, ps := buildConstraints(s)
+	return findAll(s.db, fs, rest, ps)
+}
+
 func (s *sqlQuery) Create(i pouch.Createable) error {
 	rest, _ := buildConstraints(s)
 	return createEntity(s.db, i, rest)
+}
+
+func (s *sqlQuery) CreateAll(cs []pouch.Createable) error {
+	return createAll(s.db, cs)
 }
 
 func (s *sqlQuery) Update(u pouch.Updateable) error {
@@ -247,9 +274,18 @@ func (s *sqlQuery) Update(u pouch.Updateable) error {
 	return updateEntity(s.db, u, rest)
 }
 
+func (s *sqlQuery) UpdateAll(us []pouch.Updateable) error {
+	// TODO(ttaco): do it
+	return nil
+}
+
 func (s *sqlQuery) Delete(i pouch.Deleteable) error {
 	rest, _ := buildConstraints(s)
 	return deleteEntity(s.db, i, rest)
+}
+
+func (s *sqlQuery) DeleteAll(ds []pouch.Deleteable) error {
+	return deleteAll(s.db, ds)
 }
 
 func (s *sqlQuery) GroupBy(spec string) pouch.Query {
@@ -278,6 +314,11 @@ func (s *sqlQuery) Limit(lim int) pouch.Query {
 func (s *sqlQuery) Offset(off int) pouch.Query {
 	s.offset = off
 	return s
+}
+
+func (s *sqlQuery) FindEntities(template pouch.Findable, res *[]pouch.Findable) error {
+	rest, ps := buildConstraints(s)
+	return findEntities(s.db, template, res, rest, ps)
 }
 
 //TODO(ttacon): add HAVING
@@ -324,4 +365,187 @@ func buildConstraints(s *sqlQuery) (string, []interface{}) {
 		}
 	}
 	return constraints.String(), vals
+}
+
+////////// *All functions //////////
+func findAll(db pouch.Executor, fs []pouch.Findable, rest string, ps []interface{}) error {
+	// it assumes fs is full of entities who know their identifying info
+	if len(fs) == 0 {
+		// how's this for a cryptic error lol
+		return errors.New("cannot find non-existent entities")
+	}
+
+	for _, i := range fs {
+		table := i.Table()
+		if len(table) == 0 {
+			return errors.New("entity is not known to map to any table")
+		}
+
+		cols, fields := i.GetAllFields()
+		if len(cols) == 0 || len(fields) == 0 {
+			return errors.New("must provide columns to select from")
+		}
+
+		var query = builder.NewBuilderString("select ")
+		for i, col := range cols {
+			if i > 0 {
+				query.WriteString(",\n  ")
+			}
+			query.WriteString(col)
+		}
+		query.WriteString("\nfrom " + table + "\n")
+
+		ids, vals := i.IdentifiableFields()
+		if len(ids) == 0 || len(vals) == 0 {
+			return errors.New("no identifying information for entity")
+		}
+
+		ps = append(vals, ps...)
+		query.WriteString("where ")
+		for i, id := range ids {
+			if i > 0 && i < len(ids)-1 {
+				query.WriteString(" AND ")
+			}
+			query.WriteString(id + " = ? ")
+		}
+
+		if len(rest) > 0 {
+			query.WriteString(" AND " + rest)
+		}
+
+		row := db.QueryRow(query.String(), ps...)
+
+		if err := row.Scan(fields...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createAll(db pouch.Executor, cs []pouch.Createable) error {
+	if len(cs) == 0 {
+		return errors.New("no entities to insert (empty slice)")
+	}
+
+	// TODO(ttacon): move the validation logic out of the loop
+	// (prevalidate everything, will help)
+
+	for _, i := range cs {
+		var cols, vals = i.InsertableFields()
+		if len(cols) == 0 || len(vals) == 0 {
+			return errors.New("cannot insert empty entity")
+		}
+		if len(cols) != len(vals) {
+			return errors.New("[inserting], there cannot be more columns than values")
+		}
+
+		placeholders := "?"
+		if len(vals) > 1 {
+			placeholders += strings.Repeat(", ?", len(vals)-1)
+		}
+
+		table := i.Table()
+		if len(table) == 0 {
+			return errors.New("this entity is not known to be associated with any table")
+		}
+
+		var query = builder.NewBuilderString("insert into " + table)
+		query.WriteString("(\n" + strings.Join(cols, ", ") + "\n) values ")
+		query.WriteString("(\n" + placeholders + "\n)")
+		res, err := db.Exec(query.String(), vals...)
+		if err != nil {
+			return err
+		}
+
+		id, err := res.LastInsertId()
+		if err != nil {
+			return err
+		}
+		err = i.SetIdentifier(id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func deleteAll(db pouch.Executor, ds []pouch.Deleteable) error {
+	if len(ds) == 0 {
+		return errors.New("[deleteAll] no entities to delete")
+	}
+
+	for _, d := range ds {
+		table := d.Table()
+		if len(table) == 0 {
+			return errors.New("this entity is not known to be associated with any table")
+		}
+
+		ids, idVals := d.IdentifiableFields()
+		if len(ids) == 0 || len(idVals) == 0 {
+			return errors.New("no identifying information for entity")
+		}
+
+		var query = builder.NewBuilderString("delete\nfrom " + table + "\nwhere ")
+		for i, id := range ids {
+			if i > 0 && i < len(ids) {
+				query.WriteString(", ")
+			}
+			query.WriteString(id + " = ?")
+		}
+
+		_, err := db.Exec(query.String(), idVals...)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+////////// findEntities //////////
+func findEntities(
+	db pouch.Executor,
+	example pouch.Findable,
+	fs *[]pouch.Findable,
+	rest string,
+	ps []interface{}) error {
+
+	table := example.Table()
+	if len(table) == 0 {
+		return errors.New("entity is not known to map to any table")
+	}
+
+	cols, _ := example.GetAllFields()
+	if len(cols) == 0 {
+		return errors.New("must provide columns to select from")
+	}
+
+	var query = builder.NewBuilderString("select ")
+	for i, col := range cols {
+		if i > 0 {
+			query.WriteString(",\n  ")
+		}
+		query.WriteString(col)
+	}
+	query.WriteString("\nfrom " + table + "\n")
+
+	if len(rest) > 0 {
+		query.WriteString("WHERE " + rest)
+	}
+
+	fmt.Println("query: ", query.String())
+	rows, err := db.Query(query.String(), ps...)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		cop := example.FindableCopy()
+		fields := cop.GetFieldsFor(cols)
+		err = rows.Scan(fields...)
+		if err != nil {
+			return err
+		}
+		*fs = append(*fs, cop)
+	}
+	return rows.Err()
 }

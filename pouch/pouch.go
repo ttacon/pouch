@@ -16,13 +16,13 @@ import (
 	"github.com/ttacon/chalk"
 	"github.com/ttacon/go-utils/db/sqlutil"
 	"github.com/ttacon/pouch/pouch/defs"
-	"github.com/ttacon/pretty"
 	"golang.org/x/tools/imports"
 )
 
 var (
 	// where to put the generated code
 	targetPkg = flag.String("pkg", "", "package to write files to")
+	pkgName   = flag.String("pName", "", "pkg name for the generated files")
 
 	// TODO(ttacon): dsn or individual parts?
 	// for DB mode
@@ -36,7 +36,7 @@ var (
 	prompt     = chalk.Green.NewStyle().Style
 	warning    = chalk.Yellow.NewStyle().Style
 	errorP     = chalk.Red.NewStyle().Style
-	dbgenPrmpt = chalk.Magenta.Color("[dbgen]")
+	dbgenPrmpt = chalk.Magenta.Color("[pouch]")
 
 	// Other things we need...
 	gopath = os.Getenv("GOPATH")
@@ -72,6 +72,12 @@ func main() {
 		*targetPkg = filepath.Join(gopath, "src", *targetPkg)
 	}
 
+	var dirPkg = filepath.Base(*targetPkg)
+
+	if len(*pkgName) >= 0 {
+		dirPkg = *pkgName
+	}
+
 	var (
 		structFileNeeded = false
 		entities         []*defs.StructInfo
@@ -91,8 +97,6 @@ func main() {
 		dbConn.Close()
 		structFileNeeded = true
 	}
-
-	var dirPkg = filepath.Base(*targetPkg)
 
 	// file generation
 	if structFileNeeded {
@@ -163,7 +167,6 @@ func main() {
 	}
 
 	fmt.Println(checkY)
-	fmt.Println("code: \n", string(funcCode))
 }
 
 func dbInfoProvided(ss ...string) bool {
@@ -193,7 +196,6 @@ func generateStructsFrom(db *sql.DB) ([]*defs.StructInfo, error) {
 		toGen[i] = structFrom(table, columns)
 		toGen[i].Table = table
 	}
-	pretty.Println(toGen)
 
 	return toGen, nil
 }

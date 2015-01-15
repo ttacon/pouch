@@ -2,14 +2,92 @@ package impl
 
 import (
 	"database/sql"
+	"flag"
+	"fmt"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/ttacon/pouch"
 )
 
+var (
+	username    = flag.String("u", "pouch", "username for db")
+	password    = flag.String("p", "pouch", "password for db")
+	database    = flag.String("db", "pouch", "database to connect to")
+	dbTable     = flag.String("dbt", "Food", "table to use as scratch for testing")
+	forceCreate = flag.Bool("force-create", false, "create the data base if it doesn't exist")
+
+	dbURI string
+)
+
+func init() {
+	flag.Parse()
+
+	dbURI = fmt.Sprintf("%s:%s@/%s", *username, *password, *database)
+	dbConn, err := sql.Open("mysql", dbURI)
+	if err != nil {
+		panic("failed to connect to db, err: " + err.Error())
+	}
+	if *forceCreate {
+		err = createTable(dbConn)
+		if err != nil {
+			panic("failed to force creation of table, err: " + err.Error())
+		}
+	}
+	err = cleanDB(dbConn)
+	if err != nil {
+		panic("failed to clean db, err: " + err.Error())
+	}
+}
+
+func cleanDB(db pouch.Executor) error {
+	_, err := db.Exec(fmt.Sprintf(`
+delete from %s
+`, *dbTable))
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(fmt.Sprintf(`
+ALTER TABLE %s AUTO_INCREMENT = 1
+`, *dbTable))
+	return err
+}
+
+func createTable(db pouch.Executor) error {
+	_, err := db.Exec(fmt.Sprintf(`
+create table %s if not exists (
+  ID int primary key auto_increment,
+  Name varchar(64) not null,
+  NullableString varchar(64)
+) engine=InnoDB;`), *dbTable)
+	return err
+}
+
+func Test_create(t *testing.T) {
+	dbConn, err := sql.Open("mysql", dbURI)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	p := SQLPouch(dbConn)
+	var f = Food{
+		Name: "spinach",
+	}
+	err = p.Create(&f)
+
+	if err != nil {
+		t.Error("err should have been nil, was: ", err)
+	}
+
+	if f.ID != 1 {
+		t.Error("ID should have been 1, was: ", f.ID)
+	}
+}
+
 func Test_Pouch(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
+	dbConn, err := sql.Open("mysql", dbURI)
 	if err != nil {
 		t.Error(err)
 		return
@@ -33,34 +111,12 @@ func Test_Pouch(t *testing.T) {
 	}
 }
 
-func Test_create(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	p := SQLPouch(dbConn)
-	var f = Food{
-		Name: "spinach",
-	}
-	err = p.Create(&f)
-
-	if err != nil {
-		t.Error("err should have been nil, was: ", err)
-	}
-
-	if f.ID != 3 {
-		t.Error("ID should have been 3, was: ", f.ID)
-	}
-}
-
 func pString(s string) *string {
 	return &s
 }
 
 func Test_update(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
+	dbConn, err := sql.Open("mysql", dbURI)
 	if err != nil {
 		t.Error(err)
 		return
@@ -83,7 +139,7 @@ func Test_update(t *testing.T) {
 }
 
 func Test_delete(t *testing.T) {
-	dbConn, err := sql.Open("mysql", "pouch:pouch@/pouch")
+	dbConn, err := sql.Open("mysql", dbURI)
 	if err != nil {
 		t.Error(err)
 		return

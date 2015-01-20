@@ -3,25 +3,23 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/ttacon/builder"
 	"github.com/ttacon/chalk"
-	"github.com/ttacon/go-utils/db/sqlutil"
 	"github.com/ttacon/pouch/pouch/defs"
 	"golang.org/x/tools/imports"
 )
 
 var (
 	// where to put the generated code
-	targetPkg = flag.String("pkg", "", "package to write files to")
+	targetPkg = flag.String("pkg", "", "package to inspect to")
 	pkgName   = flag.String("pName", "", "pkg name for the generated files")
 
 	// TODO(ttacon): dsn or individual parts?
@@ -31,6 +29,13 @@ var (
 	password = flag.String("p", "", "password to authenticate user with")
 	database = flag.String("db", "", "database to read tables from")
 	fullDsn  = flag.String("dsn", "", "the uri to use to connect to the database")
+
+	// modes
+	// TODO(ttacon): more detailed, yet still succinct, usage message
+	dbDiff       = flag.Bool("db-diff", false, "identify differences between db/code")
+	codeMode     = flag.Bool("ff", false, "only use files as source")
+	onlyCodeMode = flag.Bool("ff-dry-run", false, "dry run of created tables from structs")
+	beastMode    = flag.Bool("beast-mode", false, "force create tables and code")
 
 	// Prompts
 	prompt     = chalk.Green.NewStyle().Style
@@ -51,6 +56,9 @@ var (
 
 func main() {
 	flag.Parse()
+
+	// a little varialble overriding
+	*codeMode = *codeMode || *onlyCodeMode
 
 	err := loadTemplates()
 	if err != nil {
@@ -73,17 +81,39 @@ func main() {
 	}
 
 	var dirPkg = filepath.Base(*targetPkg)
-
-	if len(*pkgName) >= 0 {
+	if len(*pkgName) > 0 {
 		dirPkg = *pkgName
+	}
+
+	if *dbDiff {
+		dbConn, err := getDBConn(*host, *user, *password, *database)
+		if err != nil {
+			fmt.Println(dbgenPrmpt, "failed to connect to database: "+err.Error())
+			return
+		}
+		dbEntities, err := generateStructsFrom(dbConn)
+		if err != nil {
+			fmt.Println(dbgenPrmpt, "failed to generate structs from db: "+err.Error())
+			os.Exit(1)
+		}
+
+		fileEntities, err := StructsFromFile(*targetPkg)
+		if err != nil {
+			fmt.Println(dbgenPrmpt, "failed to retrieve structs: "+err.Error())
+			os.Exit(1)
+		}
+
+		diffAndReport(dbEntities, fileEntities)
+		return
 	}
 
 	var (
 		structFileNeeded = false
+		createTables     = true
 		entities         []*defs.StructInfo
 	)
 
-	if dbInfoProvided(*host, *user, *password, *database) {
+	if dbInfoProvided(*host, *user, *password, *database) && !*codeMode {
 		// TODO(ttacon): add option for specific table(s) to be generated for
 		dbConn, err := getDBConn(*host, *user, *password, *database)
 		if err != nil {
@@ -93,9 +123,25 @@ func main() {
 		entities, err = generateStructsFrom(dbConn)
 		if err != nil {
 			fmt.Println(dbgenPrmpt, "failed to generate structs: "+err.Error())
+			os.Exit(1)
 		}
 		dbConn.Close()
 		structFileNeeded = true
+	} else {
+		// we're reading from the file system
+		entities, err = StructsFromFile(*targetPkg)
+		if err != nil {
+			fmt.Println(dbgenPrmpt, "failed to retrieve structs: "+err.Error())
+			os.Exit(1)
+		}
+		createTables = true
+	}
+
+	// check structs for field conflicts
+	err = nameConflicts(entities)
+	if err != nil {
+		fmt.Println(dbgenPrmpt, errorP("name conflicts: "+err.Error()))
+		os.Exit(1)
 	}
 
 	// file generation
@@ -131,6 +177,50 @@ func main() {
 			return
 		}
 		fmt.Println(checkY)
+	}
+
+	// prompt user to create tables on db
+	if createTables {
+		if len(entities) == 0 {
+			fmt.Println(dbgenPrmpt, "no entities to create tables for")
+			return
+		}
+
+		dbConn, err := getDBConn(*host, *user, *password, *database)
+		if err != nil {
+			fmt.Println(dbgenPrmpt, "failed to connect to database: "+err.Error())
+			return
+		}
+
+		dbEntities, err := generateStructsFrom(dbConn)
+		if err != nil {
+			fmt.Println(dbgenPrmpt, "failed to generate structs: "+err.Error())
+			os.Exit(1)
+		}
+
+		woTable := diffContained(dbEntities, entities)
+		if len(woTable) == 0 {
+			fmt.Println(dbgenPrmpt, "all annotated structs have associated tables")
+			if *onlyCodeMode {
+				return
+			}
+		} else {
+			if *onlyCodeMode {
+				fmt.Println(dbgenPrmpt, "there are structs unknown to the db:")
+				for i, wo := range woTable {
+					fmt.Printf("\t[%d] %s\n", i+1, wo.Name)
+				}
+				fmt.Println(dbgenPrmpt, "(to force create, run in -beast-mode)")
+				return
+			}
+
+			// TODO(ttacon): create tables from structs
+			err = createTablesFn(dbConn, woTable)
+			if err != nil {
+				fmt.Println(dbgenPrmpt, errorP("failed to create tables"))
+				os.Exit(1)
+			}
+		}
 	}
 
 	fmt.Print(dbgenPrmpt, " generating functions (functions.pch.go): ")
@@ -178,136 +268,6 @@ func dbInfoProvided(ss ...string) bool {
 	return false
 }
 
-func generateStructsFrom(db *sql.DB) ([]*defs.StructInfo, error) {
-	util := sqlutil.New(db)
-	tables, err := util.ShowTables("")
-	if err != nil {
-		return nil, err
-	}
-
-	var toGen = make([]*defs.StructInfo, len(tables))
-
-	for i, table := range tables {
-		columns, err := util.DescribeTable(table)
-		if err != nil {
-			return nil, err
-		}
-
-		toGen[i] = structFrom(table, columns)
-		toGen[i].Table = table
-	}
-
-	return toGen, nil
-}
-
-func generateStructCode(toGen []*defs.StructInfo) ([]byte, error) {
-	var (
-		fileBytes      = builder.NewBuilder(nil)
-		templateBuffer = builder.NewBuilder(nil)
-	)
-	for _, s := range toGen {
-		err := structTmplt.Execute(templateBuffer, s)
-		if err != nil {
-			return nil, err
-		}
-
-		fileBytes.Write(templateBuffer.Bytes())
-		templateBuffer.Reset()
-	}
-
-	return fileBytes.Bytes(), nil
-}
-
-func generateFunctions(toGen []*defs.StructInfo) ([]byte, error) {
-	var (
-		fileBytes = builder.NewBuilder(nil)
-	)
-	templateToGoThrough := []*template.Template{
-		identifiableT,
-		insertableT,
-		tableablT,
-		findableT,
-		gettableT,
-	}
-	for _, s := range toGen {
-		for _, templ := range templateToGoThrough {
-			err := templ.Execute(fileBytes, s)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return fileBytes.Bytes(), nil
-}
-
-func structFrom(name string, columns []sqlutil.ColumnInfo) *defs.StructInfo {
-	var fields = make([]defs.FieldInfo, len(columns))
-	var idField *string
-	for i, column := range columns {
-		fields[i] = defs.FieldInfo{
-			Name:      column.Field,
-			Column:    column.Field,
-			IsPointer: column.Null == "YES",
-			Type:      goType(column.Type),
-		}
-		if column.Key == "PRI" {
-			// TODO(ttacon): make this not mysql specific
-			fields[i].IsPrimaryKey = true
-			if column.Extra == "auto_increment" {
-				var f = column.Field
-				idField = &f
-			}
-		}
-	}
-	s := &defs.StructInfo{
-		Name:   name,
-		Fields: fields,
-	}
-	if idField != nil {
-		s.IDField = *idField
-		s.HasAutoGenIDField = true
-	}
-	return s
-}
-
-func goType(typ string) string {
-	// for now let's strip from the first '('
-	firstParen := strings.Index(typ, "(")
-	if firstParen > 0 {
-		typ = typ[:firstParen]
-	}
-	switch typ {
-	case "boolean":
-		return "bool"
-	case "tinyint":
-		return "int8"
-	case "tinyint unsigned":
-		return "uint8"
-	case "smallint":
-		return "int16"
-	case "smallint unsigned":
-		return "uint16"
-	case "int":
-		return "int"
-	case "int unsigned":
-		return "uint"
-	case "bigint":
-		return "int64"
-	case "bigint unsigned":
-		return "uint64"
-		// TODO(ttacon): how should we know about float32s?
-	case "double":
-		return "float64"
-	case "mediumblob":
-		return "[]uint8"
-	case "datetime":
-		return "time.Time"
-	default:
-		return "string"
-	}
-}
-
 func getDBConn(host, username, password, database string) (*sql.DB, error) {
 	return sql.Open("mysql",
 		fmt.Sprintf("%s:%s@%s/%s?parseTime=true", username, password, host, database))
@@ -353,6 +313,28 @@ func loadTemplates() error {
 	}
 
 	return nil
+}
+
+func nameConflicts(es []*defs.StructInfo) error {
+	for _, e := range es {
+		for _, field := range e.Fields {
+			if _, ok := functionNames[field.Name]; ok {
+				return errors.New(e.Name + "." + field.Name)
+			}
+		}
+	}
+	return nil
+}
+
+var functionNames = map[string]struct{}{
+	"Table":              struct{}{},
+	"FindableCopy":       struct{}{},
+	"FieldsFor":          struct{}{},
+	"InsertableFields":   struct{}{},
+	"SetIdentifier":      struct{}{},
+	"IdentifiableFields": struct{}{},
+	"GetFieldsFor":       struct{}{},
+	"GetAllFields":       struct{}{},
 }
 
 ////////// templates for function generation //////////

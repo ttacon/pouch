@@ -7,6 +7,7 @@ go:
 
 services:
  - mysql
+ - redis-server
  - postgres
  - sqlite3
  - mongodb

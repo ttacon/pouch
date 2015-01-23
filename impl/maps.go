@@ -96,17 +96,12 @@ func (s *mapPouch) DeleteAll(ds []pouch.Deleteable) error {
 ////////// SQL pouch.Query implementation //////////
 
 type mapQuery struct {
-	db           pouch.Executor
+	db           map[string]interface{}
 	groupBySpecs []string
 	orderBySpecs []string
 	constraints  []constraintPair
 	limit        int
 	offset       int
-}
-
-type constraintPair struct {
-	frag string
-	vals []interface{}
 }
 
 func (s *mapQuery) Find(i pouch.Findable) error {

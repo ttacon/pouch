@@ -114,6 +114,7 @@ func main() {
 	)
 
 	if dbInfoProvided(*host, *user, *password, *database) && !*codeMode {
+		fmt.Println(dbgenPrmpt, "running in db mode")
 		// TODO(ttacon): add option for specific table(s) to be generated for
 		dbConn, err := getDBConn(*host, *user, *password, *database)
 		if err != nil {
@@ -160,6 +161,7 @@ func main() {
 		fBuf.Write(fBytes)
 		fBuf.WriteString("\n\n")
 
+		fmt.Println(fBuf.String())
 		process, err := imports.Process("", fBuf.Bytes(), nil)
 		if err != nil {
 			fmt.Println(dbgenPrmpt, "failed to process imports for struct file:", err)

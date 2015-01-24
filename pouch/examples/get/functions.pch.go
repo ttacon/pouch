@@ -79,3 +79,7 @@ func (g *Food) GetAllFields() ([]string, []interface{}) {
 	}
 	return cols, fields
 }
+
+func (g *Food) Merge(_ pouch.Gettable) error {
+	return nil
+}

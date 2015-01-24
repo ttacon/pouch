@@ -82,3 +82,7 @@ func (g *CoolStruct) GetAllFields() ([]string, []interface{}) {
 	}
 	return cols, fields
 }
+
+func (g *CoolStruct) Merge(_ pouch.Gettable) error {
+	return nil
+}

@@ -54,6 +54,10 @@ type Gettable interface {
 	Tableable
 }
 
+type Mergeable interface {
+	Merge(Gettable) error
+}
+
 // A Tableable entity is one which knows where in a Storage system
 // it is supposed to be stored and retrieved from.
 type Tableable interface {
@@ -66,6 +70,7 @@ type Findable interface {
 	Identifiable
 	Gettable
 	FindableCopy() Findable
+	Mergeable
 }
 
 // An Insertable entity is one which knows what data from itself

@@ -1,15 +1,20 @@
 package impl
 
-import "github.com/ttacon/pouch"
+import (
+	"errors"
+	"fmt"
 
-////////// SQL Pouch implementation //////////
+	"github.com/ttacon/pouch"
+)
+
+////////// Map Pouch implementation //////////
 type mapPouch struct {
 	db map[string]interface{}
 }
 
-func MapPouch() pouch.Pouch {
+func MapPouch(m map[string]interface{}) pouch.Pouch {
 	return &mapPouch{
-		db: make(map[string]interface{}),
+		db: m,
 	}
 }
 
@@ -54,8 +59,7 @@ func (s *mapPouch) Offset(off int) pouch.Query {
 }
 
 func (s *mapPouch) Find(i pouch.Findable) error {
-	// TODO(ttaco): do it
-	return nil
+	return findMapEntry(s.db, i)
 }
 
 func (s *mapPouch) FindAll(fs []pouch.Findable) error {
@@ -175,4 +179,27 @@ func (s *mapQuery) Offset(off int) pouch.Query {
 func (s *mapQuery) FindEntities(template pouch.Findable, res *[]pouch.Findable) error {
 	// TODO(ttaco): do it
 	return nil
+}
+
+////////// help fns //////////
+
+func findMapEntry(m map[string]interface{}, i pouch.Findable) error {
+	table := i.Table()
+	if len(table) == 0 {
+		return errors.New("can't find an entity that has no table/key format")
+	}
+
+	_, ifies := i.IdentifiableFields()
+	key := fmt.Sprintf(table, ifies...)
+	v, ok := m[key]
+	if !ok {
+		return errors.New("could not find entity: " + key)
+	}
+
+	g, ok := v.(pouch.Gettable)
+	if !ok {
+		return errors.New("cannot merge with non-mergeable entity")
+	}
+
+	return i.Merge(g)
 }

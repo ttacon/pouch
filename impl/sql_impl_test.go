@@ -2,6 +2,7 @@ package impl
 
 import (
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
 	"testing"
@@ -216,4 +217,30 @@ func (f *Food) InsertableFields() ([]string, []interface{}) {
 		vals = append(vals, *f.Nil)
 	}
 	return cols, vals
+}
+
+func (f *Food) Merge(m pouch.Gettable) error {
+	fNames, fVals := m.GetAllFields()
+	if len(fNames) != len(fVals) {
+		return errors.New("when merging foods, must have slices of same length")
+	}
+
+	for i, name := range fNames {
+		if name == "ID" {
+			f.ID = *fVals[i].(*int)
+		} else if name == "Name" {
+			f.Name = *fVals[i].(*string)
+		} else if name == "Nil" {
+			f.Nil = fVals[i].(*string)
+		}
+	}
+	return nil
+}
+
+type mapFood struct {
+	*Food
+}
+
+func (m *mapFood) Table() string {
+	return "food:%v"
 }

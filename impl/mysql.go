@@ -128,7 +128,6 @@ func findEntity(db pouch.Executor, i pouch.Findable, rest string, ps []interface
 	}
 
 	query.WriteString("where ")
-
 	if len(rest) == 0 {
 		ps = append(vals, ps...)
 		for i, id := range ids {

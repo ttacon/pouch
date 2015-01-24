@@ -120,19 +120,24 @@ func findEntity(db pouch.Executor, i pouch.Findable, rest string, ps []interface
 		return errors.New("no identifying information for entity")
 	}
 
-	ps = append(vals, ps...)
 	query.WriteString("where ")
-	for i, id := range ids {
-		if i > 0 && i < len(ids)-1 {
-			query.WriteString(" AND ")
+
+	if len(rest) == 0 {
+		ps = append(vals, ps...)
+		for i, id := range ids {
+			if i > 0 && i < len(ids)-1 {
+				query.WriteString(" AND ")
+			}
+			query.WriteString(id + " = ? ")
 		}
-		query.WriteString(id + " = ? ")
-	}
 
-	if len(rest) > 0 {
 		query.WriteString(" AND " + rest)
+	} else {
+		query.WriteString(rest)
 	}
 
+	fmt.Println(query.String())
+	fmt.Println(ps...)
 	row := db.QueryRow(query.String(), ps...)
 	return row.Scan(fields...)
 }

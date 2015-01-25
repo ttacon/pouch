@@ -130,8 +130,6 @@ func findEntity(db pouch.Executor, i pouch.Findable, rest string, ps []interface
 			}
 			query.WriteString(id + " = ? ")
 		}
-
-		query.WriteString(" AND " + rest)
 	} else {
 		query.WriteString(rest)
 	}

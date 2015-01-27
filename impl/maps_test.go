@@ -79,6 +79,30 @@ func TestMapPouch_FindEntities(t *testing.T) {
 				So(m1.Name, ShouldEqual, "kale")
 				So(m2.Name, ShouldEqual, "spinach")
 			})
+
+			Convey("when a map pouch has a limit, it only queries for the first n entities", func() {
+				m0 := &mapFood{
+					&Food{
+						ID: 1,
+					},
+				}
+				m1 := &mapFood{
+					&Food{
+						ID: 2,
+					},
+				}
+				m2 := &mapFood{
+					&Food{
+						ID: 3,
+					},
+				}
+				var m []pouch.Findable = []pouch.Findable{m0, m1, m2}
+				err := p.Limit(2).FindAll(m)
+				So(err, ShouldBeNil)
+				So(m0.Name, ShouldEqual, "map based")
+				So(m1.Name, ShouldEqual, "kale")
+				So(m2.Name, ShouldEqual, "")
+			})
 		})
 	})
 }

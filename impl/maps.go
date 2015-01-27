@@ -113,8 +113,11 @@ func (s *mapQuery) Find(i pouch.Findable) error {
 }
 
 func (s *mapQuery) FindAll(fs []pouch.Findable) error {
-	// TODO(ttaco): do it
-	return nil
+	var temp = fs
+	if s.limit > 0 && s.limit < len(fs) {
+		temp = temp[0:s.limit]
+	}
+	return findAllEntries(s.db, temp)
 }
 
 func (s *mapQuery) Create(i pouch.Createable) error {

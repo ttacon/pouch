@@ -63,8 +63,7 @@ func (s *mapPouch) Find(i pouch.Findable) error {
 }
 
 func (s *mapPouch) FindAll(fs []pouch.Findable) error {
-	// TODO(ttaco): do it
-	return nil
+	return findAllEntries(s.db, fs)
 }
 
 func (s *mapPouch) Create(i pouch.Createable) error {
@@ -201,4 +200,20 @@ func findMapEntry(m map[string]interface{}, i pouch.Findable) error {
 	}
 
 	return i.Merge(g)
+}
+
+////////// bulk helpers //////////
+func findAllEntries(m map[string]interface{}, fs []pouch.Findable) error {
+	// TODO(ttacon): try all of them or return first error?
+	// or return bulk error that is simply an "error"?
+	// (I like the second option)
+	var err error
+	for _, f := range fs {
+		terr := findMapEntry(m, f)
+		if terr != nil {
+			// write now overwrite if non-nil, will make this bulk soon
+			err = terr
+		}
+	}
+	return err
 }

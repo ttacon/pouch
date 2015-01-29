@@ -182,9 +182,16 @@ func (f *Food) Table() string {
 }
 
 func (f *Food) SetIdentifier(i interface{}) error {
-	id, _ := i.(int64)
-	f.ID = int(id)
-	return nil
+	// TODO(ttacon):  switch on i.(type)
+	if id, ok := i.(int64); ok {
+		f.ID = int(id)
+		return nil
+	}
+	if id, ok := i.(int); ok {
+		f.ID = id
+		return nil
+	}
+	return errors.New("wasn't an integer...")
 }
 
 func (f *Food) FieldsFor(cols []string) []interface{} {

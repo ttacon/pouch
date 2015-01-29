@@ -9,7 +9,8 @@ import (
 
 ////////// Map Pouch implementation //////////
 type mapPouch struct {
-	db map[string]interface{}
+	db     map[string]interface{}
+	nextID int
 }
 
 func MapPouch(m map[string]interface{}) pouch.Pouch {
@@ -67,33 +68,27 @@ func (s *mapPouch) FindAll(fs []pouch.Findable) error {
 }
 
 func (s *mapPouch) Create(i pouch.Createable) error {
-	// TODO(ttaco): do it
-	return nil
+	return createMapEntry(s.db, &s.nextID, i)
 }
 
 func (s *mapPouch) CreateAll(cs []pouch.Createable) error {
-	// TODO(ttaco): do it
-	return nil
+	return createAllMapEntries(s.db, &s.nextID, cs)
 }
 
 func (s *mapPouch) Update(u pouch.Updateable) error {
-	// TODO(ttaco): do it
-	return nil
+	return updateMapEntry(s.db, u)
 }
 
 func (s *mapPouch) UpdateAll(u []pouch.Updateable) error {
-	// TODO(ttaco): do it
-	return nil
+	return updateAllMapEntries(s.db, u)
 }
 
 func (s *mapPouch) Delete(i pouch.Deleteable) error {
-	// TODO(ttaco): do it
-	return nil
+	return deleteMapEntry(s.db, i)
 }
 
 func (s *mapPouch) DeleteAll(ds []pouch.Deleteable) error {
-	// TODO(ttaco): do it
-	return nil
+	return deleteAllMapEntries(s.db, ds)
 }
 
 ////////// SQL pouch.Query implementation //////////
@@ -105,11 +100,11 @@ type mapQuery struct {
 	constraints  []constraintPair
 	limit        int
 	offset       int
+	nextID       int
 }
 
 func (s *mapQuery) Find(i pouch.Findable) error {
-	// TODO(ttaco): do it
-	return nil
+	return findMapEntry(s.db, i)
 }
 
 func (s *mapQuery) FindAll(fs []pouch.Findable) error {
@@ -121,13 +116,13 @@ func (s *mapQuery) FindAll(fs []pouch.Findable) error {
 }
 
 func (s *mapQuery) Create(i pouch.Createable) error {
-	// TODO(ttaco): do it
-	return nil
+	// TODO(ttacon): this isn't go routine safe, s.nextID either needs a lock
+	// of we pass it in and assume no errors occur
+	return createMapEntry(s.db, &s.nextID, i)
 }
 
 func (s *mapQuery) CreateAll(cs []pouch.Createable) error {
-	// TODO(ttaco): do it
-	return nil
+	return createAllMapEntries(s.db, &s.nextID, cs)
 }
 
 func (s *mapQuery) Update(u pouch.Updateable) error {
@@ -206,6 +201,49 @@ func findMapEntry(m map[string]interface{}, i pouch.Findable) error {
 	return i.Merge(g)
 }
 
+func createMapEntry(m map[string]interface{}, nextID *int, c pouch.Createable) error {
+	table := c.Table()
+	if len(table) == 0 {
+		return errors.New("can't find an entity that has no table/key format")
+	}
+	nxt := *nextID
+	key := fmt.Sprintf(table, nxt)
+	*nextID = nxt + 1
+	m[key] = c
+
+	return c.SetIdentifier(nxt)
+}
+
+func updateMapEntry(m map[string]interface{}, u pouch.Updateable) error {
+	// TODO(ttacon): offer merges or just DESTROY the existing entity?
+	table := u.Table()
+	if len(table) == 0 {
+		return errors.New("can't find an entity that has no table/key format")
+	}
+
+	_, ifies := u.IdentifiableFields()
+	key := fmt.Sprintf(table, ifies...)
+	_, ok := m[key]
+	if !ok {
+		return errors.New("could not find entity: " + key)
+	}
+
+	m[key] = u
+	return nil
+}
+
+func deleteMapEntry(m map[string]interface{}, d pouch.Deleteable) error {
+	table := d.Table()
+	if len(table) == 0 {
+		return errors.New("can't find an entity that has no table/key format")
+	}
+
+	_, ifies := d.IdentifiableFields()
+	key := fmt.Sprintf(table, ifies...)
+	delete(m, key)
+	return nil
+}
+
 ////////// bulk helpers //////////
 func findAllEntries(m map[string]interface{}, fs []pouch.Findable) error {
 	// TODO(ttacon): try all of them or return first error?
@@ -216,6 +254,36 @@ func findAllEntries(m map[string]interface{}, fs []pouch.Findable) error {
 		terr := findMapEntry(m, f)
 		if terr != nil {
 			// write now overwrite if non-nil, will make this bulk soon
+			err = terr
+		}
+	}
+	return err
+}
+
+func createAllMapEntries(m map[string]interface{}, nextID *int, cs []pouch.Createable) error {
+	for _, c := range cs {
+		if err := createMapEntry(m, nextID, c); err != nil {
+			// TODO(ttacon): or should we just keep trying?
+			return err
+		}
+	}
+	return nil
+}
+
+func updateAllMapEntries(m map[string]interface{}, us []pouch.Updateable) error {
+	var err error
+	for _, u := range us {
+		if terr := updateMapEntry(m, u); terr != nil {
+			err = terr
+		}
+	}
+	return err
+}
+
+func deleteAllMapEntries(m map[string]interface{}, ds []pouch.Deleteable) error {
+	var err error
+	for _, d := range ds {
+		if terr := deleteMapEntry(m, d); terr != nil {
 			err = terr
 		}
 	}

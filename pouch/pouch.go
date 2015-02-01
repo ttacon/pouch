@@ -392,9 +392,9 @@ func (i *{{.Name}}) FieldsFor(fs []string) []interface{} {
 
 func (i *{{.Name}}) InsertableFields() ([]string, []interface{}) {
     return []string{ {{range $i, $v := .Fields}}
-        {{$v.Column}},{{end}}
+        "{{$v.Column}}",{{end}}
     }, []interface{}{ {{range $i, $v := .Fields}}
-        {{$v.Name}},{{end}}
+        i.{{$v.Name}},{{end}}
     }
 }
 

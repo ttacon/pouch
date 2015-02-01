@@ -31,13 +31,13 @@ func (i *CoolStruct) FieldsFor(fs []string) []interface{} {
 
 func (i *CoolStruct) InsertableFields() ([]string, []interface{}) {
 	return []string{
-			Name,
-			ID,
-			yolo,
+			"Name",
+			"ID",
+			"yolo",
 		}, []interface{}{
-			Name,
-			ID,
-			Yolo,
+			i.Name,
+			i.ID,
+			i.Yolo,
 		}
 }
 

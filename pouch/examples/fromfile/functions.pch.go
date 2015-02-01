@@ -30,7 +30,15 @@ func (i *CoolStruct) FieldsFor(fs []string) []interface{} {
 }
 
 func (i *CoolStruct) InsertableFields() ([]string, []interface{}) {
-	return nil, nil
+	return []string{
+			Name,
+			ID,
+			yolo,
+		}, []interface{}{
+			Name,
+			ID,
+			Yolo,
+		}
 }
 
 func (i *CoolStruct) SetIdentifier(d interface{}) error {

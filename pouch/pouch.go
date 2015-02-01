@@ -183,7 +183,7 @@ func main() {
 	}
 
 	// prompt user to create tables on db
-	if createTables {
+	if createTables && dbInfoProvided(*user, *host, *database) {
 		if len(entities) == 0 {
 			fmt.Println(dbgenPrmpt, "no entities to create tables for")
 			return
@@ -391,7 +391,11 @@ func (i *{{.Name}}) FieldsFor(fs []string) []interface{} {
 }
 
 func (i *{{.Name}}) InsertableFields() ([]string, []interface{}) {
-    return nil, nil
+    return []string{ {{range $i, $v := .Fields}}
+        {{$v.Column}},{{end}}
+    }, []interface{}{ {{range $i, $v := .Fields}}
+        {{$v.Name}},{{end}}
+    }
 }
 
 func (i *{{.Name}}) SetIdentifier(d interface{}) error { {{if not .HasAutoGenIDField}}

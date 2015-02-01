@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"text/template"
 
+	"github.com/bgentry/speakeasy"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/ttacon/chalk"
 	"github.com/ttacon/pouch/pouch/defs"
@@ -26,7 +27,7 @@ var (
 	// for DB mode
 	host     = flag.String("h", "", "db host to connect to")
 	user     = flag.String("u", "", "user to connect to db as")
-	password = flag.String("p", "", "password to authenticate user with")
+	password = flag.Bool("p", false, "use a password to authenticate user with")
 	database = flag.String("db", "", "database to read tables from")
 	fullDsn  = flag.String("dsn", "", "the uri to use to connect to the database")
 
@@ -86,7 +87,7 @@ func main() {
 	}
 
 	if *dbDiff {
-		dbConn, err := getDBConn(*host, *user, *password, *database)
+		dbConn, err := getDBConn(*host, *user, *database, *password)
 		if err != nil {
 			fmt.Println(dbgenPrmpt, "failed to connect to database: "+err.Error())
 			return
@@ -113,10 +114,10 @@ func main() {
 		entities         []*defs.StructInfo
 	)
 
-	if dbInfoProvided(*host, *user, *password, *database) && !*codeMode {
+	if dbInfoProvided(*host, *user, *database) && !*codeMode {
 		fmt.Println(dbgenPrmpt, "running in db mode")
 		// TODO(ttacon): add option for specific table(s) to be generated for
-		dbConn, err := getDBConn(*host, *user, *password, *database)
+		dbConn, err := getDBConn(*host, *user, *database, *password)
 		if err != nil {
 			fmt.Println(dbgenPrmpt, "failed to connect to database: "+err.Error())
 			return
@@ -188,7 +189,7 @@ func main() {
 			return
 		}
 
-		dbConn, err := getDBConn(*host, *user, *password, *database)
+		dbConn, err := getDBConn(*host, *user, *database, *password)
 		if err != nil {
 			fmt.Println(dbgenPrmpt, "failed to connect to database: "+err.Error())
 			return
@@ -270,7 +271,18 @@ func dbInfoProvided(ss ...string) bool {
 	return false
 }
 
-func getDBConn(host, username, password, database string) (*sql.DB, error) {
+func getDBConn(host, username, database string, passwordPrompt bool) (*sql.DB, error) {
+	var (
+		password string
+		err      error
+	)
+	if passwordPrompt {
+		password, err = speakeasy.Ask("Password: ")
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return sql.Open("mysql",
 		fmt.Sprintf("%s:%s@%s/%s?parseTime=true", username, password, host, database))
 }

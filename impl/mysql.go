@@ -134,8 +134,7 @@ func findEntity(db pouch.Executor, i pouch.Findable, rest string, ps []interface
 		query.WriteString(rest)
 	}
 
-	fmt.Println(query.String())
-	fmt.Println(ps...)
+	defaultLogger.Print("Running query:\n", query.String(), ", with values: ", ps)
 	row := db.QueryRow(query.String(), ps...)
 	return row.Scan(fields...)
 }
@@ -160,8 +159,9 @@ func createEntity(db pouch.Executor, i pouch.Createable, rest string) error {
 	}
 
 	var query = builder.NewBuilderString("insert into " + table)
-	query.WriteString("(\n" + strings.Join(cols, ", ") + "\n) values ")
-	query.WriteString("(\n" + placeholders + "\n)")
+	query.WriteString("(\n  " + strings.Join(cols, ", ") + "\n) values ")
+	query.WriteString("(\n  " + placeholders + "\n)")
+	defaultLogger.Print("creating entity:\n", query.String(), ", with values: ", vals)
 	res, err := db.Exec(query.String(), vals...)
 	if err != nil {
 		return err
@@ -210,6 +210,7 @@ func updateEntity(db pouch.Executor, u pouch.Updateable, rest string) error {
 		query.WriteString(id + " = ? ")
 	}
 
+	defaultLogger.Print("updating entity:\n", query.String(), ", with values: ", vals)
 	_, err := db.Exec(query.String(), vals...)
 	return err
 }
@@ -233,6 +234,7 @@ func deleteEntity(db pouch.Executor, d pouch.Deleteable, rest string) error {
 		query.WriteString(id + " = ?")
 	}
 
+	defaultLogger.Print("running delete query: ", query.String(), ", with values: ", idVals)
 	_, err := db.Exec(query.String(), idVals...)
 	return err
 }

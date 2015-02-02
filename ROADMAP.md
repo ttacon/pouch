@@ -1,11 +1,16 @@
 ROADMAP
 =======
 
+ - [ ] Logging
+ - [ ] Fine grained interfaces
+   - [ ] i.e. for SQL, being able to retrieve the underlying *sql.DB (or Executor)
+   - [ ] Ability to specify transaction usage 
  - [ ] Pouch implementations (not in any particular order)
    - [ ] Postgres
    - [ ] sqlite
    - [ ] Redis
    - [ ] Mongo (?)
+   - [ ] Go Map
  - [ ] How to generate different code for multiple pouch types
    - [ ] look into maybe adding another param to every interface (PouchType const or just string?)
    - [ ] Add code generation for each as we go along
@@ -24,6 +29,8 @@ ROADMAP
    - [ ] Get to 80% test coverage (like this will ever happen)
    - [ ] Get to 90% test coverage
  - [ ] Work on interface design (in reference to different pouch types as well)
+   - [ ] Simply do method wrapping?
+   - [ ] Alternatives to ^ ?
  - [ ] Joins
    - [ ] Allow for some kind of laziness?
    - [ ] Generate getters, setters? 

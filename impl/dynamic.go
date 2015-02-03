@@ -1,6 +1,10 @@
 package impl
 
-import "github.com/ttacon/pouch"
+import (
+	"errors"
+
+	"github.com/ttacon/pouch"
+)
 
 // NOTE(ttacon):
 // The general idea is that users can pass in closures that interact with
@@ -92,34 +96,58 @@ func (s *dynamicPouch) Offset(off int) pouch.Query {
 }
 
 func (s *dynamicPouch) Find(i pouch.Findable) error {
+	if s.find == nil {
+		return errors.New("no Find function has been defined")
+	}
 	return s.find(i, s.backer)
 }
 
 func (s *dynamicPouch) FindAll(fs []pouch.Findable) error {
+	if s.findAll == nil {
+		return errors.New("no FindAll function has been defined")
+	}
 	return s.findAll(fs, s.backer)
 }
 
 func (s *dynamicPouch) Create(i pouch.Createable) error {
+	if s.create == nil {
+		return errors.New("no Create function has been defined")
+	}
 	return s.create(i, s.backer)
 }
 
 func (s *dynamicPouch) CreateAll(cs []pouch.Createable) error {
+	if s.createAll == nil {
+		return errors.New("no CreateAll function has been defined")
+	}
 	return s.createAll(cs, s.backer)
 }
 
 func (s *dynamicPouch) Update(u pouch.Updateable) error {
+	if s.update == nil {
+		return errors.New("no Update function has been defined")
+	}
 	return s.update(u, s.backer)
 }
 
 func (s *dynamicPouch) UpdateAll(u []pouch.Updateable) error {
+	if s.updateAll == nil {
+		return errors.New("no UpdateAll function has been defined")
+	}
 	return s.updateAll(u, s.backer)
 }
 
 func (s *dynamicPouch) Delete(i pouch.Deleteable) error {
+	if s.dlete == nil {
+		return errors.New("no Delete function has been defined")
+	}
 	return s.dlete(i, s.backer)
 }
 
 func (s *dynamicPouch) DeleteAll(ds []pouch.Deleteable) error {
+	if s.dleteAll == nil {
+		return errors.New("no DeleteAll function has been defined")
+	}
 	return s.dleteAll(ds, s.backer)
 }
 

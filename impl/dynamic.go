@@ -6,9 +6,6 @@ import (
 	"github.com/ttacon/pouch"
 )
 
-// NOTE(ttacon):
-// The general idea is that users can pass in closures that interact with
-// the backing data store.
 type dynamicPouch struct {
 	l      Logger
 	backer interface{}
@@ -48,7 +45,7 @@ type DynamicQuery interface {
 	SetDleteAll(func([]pouch.Deleteable, interface{}) error)
 }
 
-func NewDynamicPouch(backer interface{}) pouch.Pouch {
+func NewDynamicPouch(backer interface{}) DynamicPouch {
 	return &dynamicPouch{
 		l:      defaultLogger(),
 		backer: backer,

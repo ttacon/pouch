@@ -1,6 +1,5 @@
 [![Build Status](https://travis-ci.org/ttacon/pouch.svg?branch=master)](https://travis-ci.org/ttacon/pouch)
 
-
 # db
 ORMs done fun
 

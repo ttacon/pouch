@@ -141,7 +141,7 @@ type Queryable interface {
 }
 
 // Executor is a convenience wrapper that allows both *sql.DB and
-// *sql.DB to be as Pouches.
+// *sql.Tx to be used as Pouches.
 type Executor interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Query(query string, args ...interface{}) (*sql.Rows, error)

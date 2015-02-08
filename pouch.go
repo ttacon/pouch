@@ -11,29 +11,63 @@ type Pouch interface {
 
 // Storage is the interface implemented by anything which can
 // be interacted with to store or retrieve entities which
-// can be found, created, updated and deleted.
+// can be found, created, updated and deleted. For specific
+// information, with respect to error cases and implementation
+// details, please see the implementation for your backing
+// storage medium.
 type Storage interface {
-	FindAll([]Findable) error
+	// Find retrieves an entity from the backing storage medium.
 	Find(Findable) error
+	// FindAll takes a slice of findable entities (that contain
+	// enough information to uniquely identify them in the backing
+	// storage medium) and retrieves the rest of each Findable
+	// entities information. It should be noted, that the Findable
+	// entities to be retrieved to not have to be of the same
+	// underlying Go type.
+	FindAll([]Findable) error
 
+	// Create stores a Creatable entity in the backing storage medium.
 	Create(Createable) error
+	// CreateAll stores all given Creatable entities in the backing
+	// storage medium. It should be noted that, similarly to FindAll,
+	// the underlying types do not need to be the same. HOWEVER,
+	// this does mean that for certain backing storage media (i.e. SQL)
+	// this function will have to run multiple queries. If you want a bulk
+	// insert, please see (YET_TO_BE_IMPLEMENTED).
 	CreateAll([]Createable) error
 
+	// Update identifies the Updateable entity in the backing storage
+	// media, and updates it the given information that Updateable
+	// entity currently contains. Whether or not the provided
+	// functionality is a full update or a partial update, is up to
+	// underlying Pouch implementation.
 	Update(Updateable) error
+	// UpdateAll updates all of the provided entities in the backing
+	// storage media. Like [Find/Create]All, the underlying types do not
+	// have to be the same and as such this function is not meant to
+	// guarantee that this is a single interaction for certain media
+	// (i.e. SQL based systems). However, this can be (read should be)
+	// specified to run inside a transaction.
 	UpdateAll([]Updateable) error
 
+	// Delete deletes the given entity from a backing storage media.
 	Delete(Deleteable) error
+	// DeleteAll removes all given entities from the backing storage media.
 	DeleteAll([]Deleteable) error
 }
 
 // A Query is a direct gateway to interact with the storage and
-// retrieval of entities which is backed by a Storage system.
+// retrieval of entities which is backed by a storage system.
 // A Query can also be modified to either add or remove criterions
 // that are used to filter searches for entities in the backing
-// Storage system.
+// storage system.
 type Query interface {
 	Queryable
 	Storage
+
+	// FindEntities retrieves all entities that satisfy the Query's
+	// current criterions. This can thus also be used to retrieve
+	// all entities of a given type, to implement pagination, etc.
 	FindEntities(Findable, *[]Findable) error
 }
 

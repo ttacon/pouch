@@ -179,6 +179,7 @@ func (s *mapQuery) FindEntities(template pouch.Findable, res *[]pouch.Findable) 
 }
 
 ////////// help fns //////////
+
 func findMapEntry(m map[string]interface{}, i pouch.Findable) error {
 	table := i.Table()
 	if len(table) == 0 {

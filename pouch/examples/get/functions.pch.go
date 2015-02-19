@@ -16,6 +16,10 @@ func (i *Food) IdentifiableFields() ([]string, []interface{}) {
 	return cols, fields
 }
 
+func (i *Food) SetFields(m map[string]interface{}) error {
+	return nil
+}
+
 func (i *Food) FieldsFor(fs []string) []interface{} {
 	var fields = make([]interface{}, len(fs))
 

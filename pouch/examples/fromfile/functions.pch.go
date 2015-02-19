@@ -13,6 +13,10 @@ func (i *CoolStruct) IdentifiableFields() ([]string, []interface{}) {
 	return cols, fields
 }
 
+func (i *CoolStruct) SetFields(m map[string]interface{}) error {
+	return nil
+}
+
 func (i *CoolStruct) FieldsFor(fs []string) []interface{} {
 	var fields = make([]interface{}, len(fs))
 

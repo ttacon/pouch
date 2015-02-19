@@ -10,6 +10,7 @@ services:
  - postgres
  - sqlite3
  - mongodb
+ - memcached
 
 before_script:
  - go get github.com/lib/pq

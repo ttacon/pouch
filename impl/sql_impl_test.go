@@ -2,8 +2,10 @@ package impl
 
 import (
 	"database/sql"
+	"errors"
 	"flag"
 	"fmt"
+	"strconv"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -16,6 +18,7 @@ var (
 	database    = flag.String("db", "pouch", "database to connect to")
 	dbTable     = flag.String("dbt", "Food", "table to use as scratch for testing")
 	forceCreate = flag.Bool("force-create", false, "create the data base if it doesn't exist")
+	memcacheLoc = flag.String("mc-loc", "localhost:11211", "memcached location")
 
 	dbURI string
 )
@@ -37,6 +40,10 @@ func init() {
 	err = cleanDB(dbConn)
 	if err != nil {
 		panic("failed to clean db, err: " + err.Error())
+	}
+
+	if err = cleanMemcache(*memcacheLoc); err != nil {
+		panic("failed to clean memcache: " + err.Error())
 	}
 }
 
@@ -216,4 +223,38 @@ func (f *Food) InsertableFields() ([]string, []interface{}) {
 		vals = append(vals, *f.Nil)
 	}
 	return cols, vals
+}
+
+func (f *Food) SetFields(fields map[string]interface{}) error {
+	var unusedFields int
+	for fieldName, field := range fields {
+		switch fieldName {
+		case "ID":
+			if i, ok := field.(int); ok {
+				f.ID = i
+			} else {
+				return errors.New("expected ID to be an int, it wasn't")
+			}
+		case "Name":
+			if n, ok := field.(string); ok {
+				f.Name = n
+			} else {
+				return errors.New("expected Name to be a string, it wasn't")
+			}
+		case "Nil":
+			if n, ok := field.(*string); ok {
+				if n != nil {
+					f.Nil = n
+				}
+			} else {
+				return errors.New("expected Nil to be a *string, it wasn't")
+			}
+		default:
+			unusedFields++
+		}
+	}
+	if unusedFields > 0 {
+		return errors.New("there were " + strconv.Itoa(unusedFields) + " unused fields")
+	}
+	return nil
 }

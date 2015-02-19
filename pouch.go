@@ -94,11 +94,18 @@ type Tableable interface {
 	Table() string
 }
 
+// A Settable entity is one who knows how to reconstruct itself
+// from a mapping of string to interface{}.
+type Settable interface {
+	SetFields(map[string]interface{}) error
+}
+
 // A Findable entity is one that is Gettable from a Storage system
 // and that knows how to identify itself in the underlying Storage.
 type Findable interface {
 	Identifiable
 	Gettable
+	Settable
 	FindableCopy() Findable
 }
 

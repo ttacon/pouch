@@ -3,6 +3,7 @@ package impl
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -326,4 +327,30 @@ func (d *dynamoTestWrapper) SetIdentifier(i interface{}) error {
 
 func (d *dynamoTestWrapper) Table() string {
 	return "dynamo:" + d.id
+}
+
+func (f *dynamicTestStruct) SetFields(fields map[string]interface{}) error {
+	var unusedFields int
+	for fieldName, field := range fields {
+		switch fieldName {
+		case "id":
+			if i, ok := field.(string); ok {
+				f.id = i
+			} else {
+				return errors.New("expected id to be a string, it wasn't")
+			}
+		case "field":
+			if i, ok := field.(string); ok {
+				f.field = i
+			} else {
+				return errors.New("expected field to be a string, it wasn't")
+			}
+		default:
+			unusedFields++
+		}
+	}
+	if unusedFields > 0 {
+		return errors.New("there were " + strconv.Itoa(unusedFields) + " unused fields")
+	}
+	return nil
 }
